@@ -1,0 +1,17 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@using Umbraco.Cms.Core.Models
+@{
+    Layout = "_layout";
+}
+<h1>@Model.Value("title")</h1>
+
+@{
+    var featuredImage = Model.Value<MediaWithCrops>("featuredImage");
+}
+@if (featuredImage != null)
+{
+    <img src="@featuredImage.Url()" alt="@Model.Value("title")" width="400" />
+}
+
+<p>By @Model.Value("author") — @Model.Value("publishDate")</p>
+<div>@Model.Value("body")</div>

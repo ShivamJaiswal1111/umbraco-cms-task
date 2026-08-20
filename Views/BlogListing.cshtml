@@ -1,0 +1,14 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = "_layout";
+}
+<h1>Blog</h1>
+<p>@Model.Value("intro")</p>
+
+@foreach (var post in Model.Children().OrderByDescending(x => x.Value<DateTime>("publishDate")))
+{
+    <div class="blog-card">
+        <h2><a href="@post.Url()">@post.Value("title")</a></h2>
+        <p class="date">@(post.Value<DateTime>("publishDate").ToString("MMMM dd, yyyy"))</p>
+    </div>
+}

@@ -1,0 +1,8 @@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+<nav>
+    @foreach (var navItem in Umbraco.ContentAtRoot())
+    {
+        <a href="@navItem.Url()">@navItem.Name</a>
+        <text> | </text>
+    }
+</nav>

@@ -1,0 +1,16 @@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+
+<html>
+<html lang="en">
+<head>
+    <title>@(string.IsNullOrEmpty(Model.Value<string>("seoTitle")) ? Model.Name : Model.Value<string>("seoTitle"))</title>
+    <meta name="description" content="@Model.Value("metaDescription")" />
+    <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+    @await Html.PartialAsync("Navigation")
+    <div class="page-wrapper">
+        @RenderBody()
+    </div>
+</body>
+</html>
