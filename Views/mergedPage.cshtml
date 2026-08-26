@@ -1,0 +1,50 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = "_layout.cshtml";
+    var title = Model.Value<string>("title");
+    var body = Model.Value<string>("body");
+    var intro = Model.Value<string>("intro");
+    var siteName = Model.Value<string>("siteName");
+    var legacySourceUrl = Model.Value<string>("legacySourceUrl");
+    var nodeTitle = string.IsNullOrEmpty(title) ? Model.Name : title;
+}
+
+<div class="merged-page">
+
+    <section class="page-header">
+        <h1>@nodeTitle</h1>
+        @if (!string.IsNullOrEmpty(siteName))
+        {
+            <span class="site-badge">Migrated from: @siteName</span>
+        }
+        @if (!string.IsNullOrEmpty(legacySourceUrl))
+        {
+            <p class="legacy-url">Original URL: <code>@legacySourceUrl</code></p>
+        }
+    </section>
+
+    @if (!string.IsNullOrEmpty(intro))
+    {
+        <section class="page-intro">
+            <p>@intro</p>
+        </section>
+    }
+
+    @if (!string.IsNullOrEmpty(body))
+    {
+        <section class="page-body">
+            @Html.Raw(body)
+        </section>
+    }
+
+    @{
+        var docType = Model.ContentType.Alias;
+    }
+    @if (docType == "mergedPage" && legacySourceUrl != null && legacySourceUrl.Contains("/contact"))
+    {
+        <section class="contact-note">
+            <p>To get in touch, please visit the original site: <a href="@legacySourceUrl">@legacySourceUrl</a></p>
+        </section>
+    }
+
+</div>
