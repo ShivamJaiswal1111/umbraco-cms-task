@@ -1,6 +1,7 @@
 ﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @{
     Layout = "_layout.cshtml";
+	await Html.RenderPartialAsync("BrandConfig");
     var title = Model.Value<string>("title");
     var body = Model.Value<string>("body");
     var intro = Model.Value<string>("intro");

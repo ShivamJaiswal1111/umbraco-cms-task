@@ -1,0 +1,39 @@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    var rootName = Model.Root().Name;
+
+    string brandName, brandTagline, brandPrimary, brandDark, siteKey;
+
+    switch (rootName)
+    {
+        case "Uniphar Retail Home":
+            brandName = "Uniphar Retail";
+            brandTagline = "Trusted retail healthcare";
+            brandPrimary = "#085041";
+            brandDark = "#053528";
+            siteKey = "site-b";
+            break;
+
+        case "Merged Page":
+            brandName = "Uniphar Group";
+            brandTagline = "All sites, one platform";
+            brandPrimary = "#4f46e5";
+            brandDark = "#3730a3";
+            siteKey = "merged";
+            break;
+
+        default:
+            brandName = "Uniphar Pharmacy";
+            brandTagline = "Your health, our priority";
+            brandPrimary = "#2d2d8e";
+            brandDark = "#1e1e6e";
+            siteKey = "site-a";
+            break;
+    }
+
+    ViewData["BrandName"] = brandName;
+    ViewData["BrandTagline"] = brandTagline;
+    ViewData["BrandPrimary"] = brandPrimary;
+    ViewData["BrandDark"] = brandDark;
+    ViewData["SiteKey"] = siteKey;
+}

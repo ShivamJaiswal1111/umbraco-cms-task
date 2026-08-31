@@ -1,4 +1,5 @@
-using umbraco_cms_task.Services;
+﻿using umbraco_cms_task.Services;
+using Umbraco.Cms.Persistence.SqlServer;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,7 @@ builder.CreateUmbracoBuilder()
     .AddWebsite()
     .AddDeliveryApi()
     .AddComposers()
+    .AddUmbracoSqlServerSupport()
     .Build();
 
 WebApplication app = builder.Build();
@@ -40,37 +42,45 @@ app.Use(async (context, next) =>
     var host = context.Request.Host.Host;
     var port = context.Request.Host.Port;
 
-    // only redirect on port 4200 (Angular), not 44392 (Umbraco Razor)
     if (port == 44392)
     {
         await next();
         return;
     }
 
-    var redirectMap = new Dictionary<(string host, string path), string>
+    string? sitePrefix = host switch
     {
-        // site-a redirects → merged
-        { ("sitea.local", ""), "https://merged.local:44392/home-site-a" },
-        { ("sitea.local", "/blog-posts"), "https://merged.local:44392/home-site-a/blog-posts-site-a" },
-        { ("sitea.local", "/blog-posts/blog-post-1"), "https://merged.local:44392/home-site-a/blog-posts-site-a/blog-post-1-site-a" },
-        { ("sitea.local", "/blog-posts/blog-post-2"), "https://merged.local:44392/home-site-a/blog-posts-site-a/blog-post-2-site-a" },
-        { ("sitea.local", "/contact"), "https://merged.local:44392/home-site-a/contact-site-a" },
-
-        // site-b redirects → merged
-        { ("siteb.local", ""), "https://merged.local:44392/uniphar-retail-home-site-b" },
-        { ("siteb.local", "/blog-posts"), "https://merged.local:44392/uniphar-retail-home-site-b/blog-posts-site-b" },
-        { ("siteb.local", "/blog-posts/blog-1"), "https://merged.local:44392/uniphar-retail-home-site-b/blog-posts-site-b/blog-1-site-b" },
-        { ("siteb.local", "/contact"), "https://merged.local:44392/uniphar-retail-home-site-b/contact-site-b" },
+        "sitea.local" => "site-a",
+        "siteb.local" => "site-b",
+        _ => null
     };
 
-    if (redirectMap.TryGetValue((host, path), out var newUrl))
+    if (sitePrefix != null)
     {
-        context.Response.Redirect(newUrl, permanent: true);
-        return;
+        var legacyUrl = string.IsNullOrEmpty(path)
+            ? $"/{sitePrefix}/home"
+            : $"/{sitePrefix}{path}";
+
+        var umbracoContextFactory = context.RequestServices
+            .GetRequiredService<Umbraco.Cms.Core.Web.IUmbracoContextFactory>();
+
+        using var contextRef = umbracoContextFactory.EnsureUmbracoContext();
+        var contentCache = contextRef.UmbracoContext.Content;
+
+        var match = contentCache?.GetAtRoot()
+            .SelectMany(x => x.DescendantsOrSelf())
+            .FirstOrDefault(x => x.Value<string>("legacySourceUrl") == legacyUrl);
+
+        if (match != null)
+        {
+            context.Response.Redirect(match.Url(mode: Umbraco.Cms.Core.Models.PublishedContent.UrlMode.Absolute), permanent: true);
+            return;
+        }
     }
 
     await next();
 });
+
 app.UseUmbraco()
     .WithMiddleware(u =>
     {
@@ -84,5 +94,96 @@ app.UseUmbraco()
         u.UseWebsiteEndpoints();
         u.EndpointRouteBuilder.MapControllers();
     });
+
+app.MapGet("/rebuild-nucache", (
+    Umbraco.Cms.Core.PublishedCache.IPublishedSnapshotService snapshotService,
+    Umbraco.Cms.Core.Services.IContentTypeService contentTypeService,
+    Umbraco.Cms.Core.Services.IMediaTypeService mediaTypeService,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var contentTypeIds = contentTypeService.GetAll().Select(ct => ct.Id).ToArray();
+        var mediaTypeIds = mediaTypeService.GetAll().Select(mt => mt.Id).ToArray();
+
+        snapshotService.Rebuild(contentTypeIds: contentTypeIds, mediaTypeIds: mediaTypeIds);
+
+        logger.LogInformation(
+            "Endpoint-triggered NuCache rebuild completed. ContentTypes: {ContentCount}, MediaTypes: {MediaCount}",
+            contentTypeIds.Length, mediaTypeIds.Length);
+
+        return Results.Ok($"Rebuild completed - {contentTypeIds.Length} content types, {mediaTypeIds.Length} media types");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Endpoint-triggered NuCache rebuild failed.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/fix-culture-names", (
+    Umbraco.Cms.Core.Services.IContentService contentService,
+    Umbraco.Cms.Core.Services.ILocalizationService languageService,
+    ILogger<Program> logger) =>
+{
+    var results = new List<string>();
+    var errors = new List<string>();
+
+    var nodeIds = new[]
+    {
+        1057, 1062, 1063, 1064, 1066, 1074, 1079, 1080, 1081, 1082, 1083,
+        1087, 1088, 1089, 1102, 1103, 1114, 1117, 1158, 1159, 1160, 1161,
+        1162, 1163, 1164, 1165, 1166, 1167, 1168, 1169, 1170, 1171, 1172,
+        1173, 1174
+    };
+
+    var isoCodes = languageService.GetAllLanguages().Select(l => l.IsoCode).ToList();
+
+    foreach (var id in nodeIds)
+    {
+        try
+        {
+            var content = contentService.GetById(id);
+            if (content == null)
+            {
+                errors.Add($"Node {id}: not found");
+                continue;
+            }
+
+            if (!content.ContentType.VariesByCulture())
+            {
+                results.Add($"Node {id}: invariant, skipped");
+                continue;
+            }
+
+            var baseName = content.Name;
+            if (string.IsNullOrWhiteSpace(baseName))
+            {
+                errors.Add($"Node {id}: base Name is empty, cannot fix");
+                continue;
+            }
+
+            foreach (var iso in isoCodes)
+            {
+                content.SetCultureName(baseName, iso);
+            }
+
+            var publishResult = contentService.SaveAndPublish(content, isoCodes.ToArray());
+
+            results.Add(publishResult.Success
+                ? $"Node {id} ('{baseName}'): fixed and published"
+                : $"Node {id} ('{baseName}'): save failed");
+        }
+        catch (Exception ex)
+        {
+            errors.Add($"Node {id}: EXCEPTION - {ex.Message}");
+        }
+    }
+
+    logger.LogInformation("Culture name fix completed. {SuccessCount} processed, {ErrorCount} errors.",
+        results.Count, errors.Count);
+
+    return Results.Ok(new { results, errors });
+});
 
 await app.RunAsync();

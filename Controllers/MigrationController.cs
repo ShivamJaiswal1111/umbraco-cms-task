@@ -27,7 +27,8 @@ namespace umbraco_cms_task.Controllers
             var siteA  = rootNodes.FirstOrDefault(c => c.Name == "Home");
             var siteB  = rootNodes.FirstOrDefault(c => c.Name == "Uniphar Retail Home");
 
-            // Merged Site ID — taken directly from your info panel
+        
+        
             var merged = _contentService.GetById(1117);
 
             if (siteA == null)
@@ -85,6 +86,19 @@ namespace umbraco_cms_task.Controllers
             };
 
             return Ok(result);
+        }
+        [HttpGet("seed")]
+        public IActionResult Seed()
+        {
+            try
+            {
+                _migrationService.SeedBrandedContent();
+                return Ok("Branded content seeded successfully.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

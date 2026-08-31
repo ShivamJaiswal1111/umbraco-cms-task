@@ -1,9 +1,12 @@
 ﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @{
-    Layout = "_layout";
+    Layout = "_layout.cshtml";
+    await Html.RenderPartialAsync("BrandConfig");
+    ViewData["Title"] = Model.Value<string>("sEOTitle") ?? Model.Name;
+    ViewData["MetaDescription"] = Model.Value<string>("metaDescription") ?? "";
 }
-<h1>@Model.Value("title")</h1>
+
 <div class="hero">
     <h1>@Model.Value("title")</h1>
 </div>
-<div>@Model.Value("body")</div>
+<div>@Html.Raw(Model.Value<string>("body") ?? "")</div>

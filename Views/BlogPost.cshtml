@@ -1,7 +1,9 @@
 ﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
-@using Umbraco.Cms.Core.Models
 @{
-    Layout = "_layout";
+    Layout = "_layout.cshtml";
+    await Html.RenderPartialAsync("BrandConfig");
+    ViewData["Title"] = Model.Value<string>("sEOTitle") ?? Model.Name;
+    ViewData["MetaDescription"] = Model.Value<string>("metaDescription") ?? "";
 }
 <h1>@Model.Value("title")</h1>
 
@@ -14,4 +16,4 @@
 }
 
 <p>By @Model.Value("author") — @Model.Value("publishDate")</p>
-<div>@Model.Value("body")</div>
+<div>@Html.Raw(Model.Value<string>("body") ?? "")</div>
